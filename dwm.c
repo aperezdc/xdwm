@@ -169,6 +169,8 @@ static void focus(Client *c);
 static void focusin(XEvent *e);
 static void focusmon(const Arg *arg);
 static void focusstack(const Arg *arg);
+static void swapfocus();
+static unsigned long getcolor(const char *colstr);
 static Bool getrootptr(int *x, int *y);
 static long getstate(Window w);
 static Bool gettextprop(Window w, Atom atom, char *text, unsigned int size);
@@ -234,6 +236,7 @@ static int xerrorstart(Display *dpy, XErrorEvent *ee);
 static void zoom(const Arg *arg);
 
 /* variables */
+static Arg focusdirection={.i=1};
 static const char broken[] = "broken";
 static char stext[256];
 static int screen;
@@ -827,6 +830,8 @@ focusmon(const Arg *arg) {
 
 void
 focusstack(const Arg *arg) {
+	focusdirection.i=arg->i;
+
 	Client *c = NULL, *i;
 
 	if(!selmon->sel)
@@ -864,6 +869,23 @@ getatomprop(Client *c, Atom prop) {
 		XFree(p);
 	}
 	return atom;
+}
+
+void
+swapfocus(){
+	focusdirection.i*=-1;
+	focusstack(&focusdirection);
+}
+
+
+unsigned long
+getcolor(const char *colstr) {
+	Colormap cmap = DefaultColormap(dpy, screen);
+	XColor color;
+
+	if(!XAllocNamedColor(dpy, cmap, colstr, &color, &color))
+		die("error, cannot allocate color '%s'\n", colstr);
+	return color.pixel;
 }
 
 Bool
