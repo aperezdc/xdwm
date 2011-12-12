@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<todo version="0.1.20">
+    <note priority="medium" time="1323681154">
+        Replace xerrordummy with something that actually handles errors
+    </note>
+    <note priority="medium" time="1323681393">
+        Add a flag to Key to execute the command on release (needed for commands affecting the keyboard grab, see scrot -s for example)
+    </note>
+    <note priority="medium" time="1323681405">
+        Add updategeom() hook for external tools like dzen
+    </note>
+    <note priority="medium" time="1323681414">
+        Consider onscreenkeyboard hooks for tablet deployment
+    </note>
+</todo>
