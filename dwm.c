@@ -54,7 +54,8 @@
 #define WIDTH(X)                ((X)->w + 2 * (X)->bw)
 #define HEIGHT(X)               ((X)->h + 2 * (X)->bw)
 #define TAGMASK                 ((1 << LENGTH(tags)) - 1)
-#define TEXTW(X)                (drw_font_getexts_width(drw->font, X, strlen(X)) + drw->font->h)
+#define TEXTW(X)                (textnw(X, strlen(X)) + dc.font.height)
+#define UNUSED(X)               ((void)X)
 
 /* enums */
 enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
@@ -1012,6 +1013,7 @@ keypress(XEvent *e) {
 
 void
 killclient(const Arg *arg) {
+	UNUSED(arg);
 	if(!selmon->sel)
 		return;
 	if(!sendevent(selmon->sel, wmatom[WMDelete])) {
@@ -1146,6 +1148,8 @@ movemouse(const Arg *arg) {
 	Monitor *m;
 	XEvent ev;
 
+    UNUSED(arg);
+
 	if(!(c = selmon->sel))
 		return;
 	if(c->isfullscreen) /* no support moving fullscreen windows by mouse */
@@ -1248,6 +1252,7 @@ propertynotify(XEvent *e) {
 
 void
 quit(const Arg *arg) {
+    UNUSED(arg);
 	running = False;
 }
 
@@ -1291,6 +1296,8 @@ resizemouse(const Arg *arg) {
 	Client *c;
 	Monitor *m;
 	XEvent ev;
+
+    UNUSED(arg);
 
 	if(!(c = selmon->sel))
 		return;
@@ -1585,6 +1592,7 @@ showhide(Client *c) {
 
 void
 sigchld(int unused) {
+    UNUSED(unused);
 	if(signal(SIGCHLD, sigchld) == SIG_ERR)
 		die("Can't install SIGCHLD handler");
 	while(0 < waitpid(-1, NULL, WNOHANG));
@@ -1649,6 +1657,7 @@ tile(Monitor *m) {
 
 void
 togglebar(const Arg *arg) {
+    UNUSED(arg);
 	selmon->showbar = !selmon->showbar;
 	updatebarpos(selmon);
 	XMoveResizeWindow(dpy, selmon->barwin, selmon->wx, selmon->by, selmon->ww, bh);
@@ -1657,6 +1666,7 @@ togglebar(const Arg *arg) {
 
 void
 togglefloating(const Arg *arg) {
+    UNUSED(arg);
 	if(!selmon->sel)
 		return;
 	if(selmon->sel->isfullscreen) /* no support for fullscreen windows */
@@ -2041,6 +2051,8 @@ xerror(Display *dpy, XErrorEvent *ee) {
 
 int
 xerrordummy(Display *dpy, XErrorEvent *ee) {
+    UNUSED(dpy);
+    UNUSED(ee);
 	return 0;
 }
 
@@ -2048,6 +2060,8 @@ xerrordummy(Display *dpy, XErrorEvent *ee) {
  * is already running. */
 int
 xerrorstart(Display *dpy, XErrorEvent *ee) {
+	UNUSED(dpy);
+	UNUSED(ee);
 	die("dwm: another window manager is already running\n");
 	return -1;
 }
@@ -2055,6 +2069,8 @@ xerrorstart(Display *dpy, XErrorEvent *ee) {
 void
 zoom(const Arg *arg) {
 	Client *c = selmon->sel;
+
+    UNUSED(arg);
 
 	if(!selmon->lt[selmon->sellt]->arrange
 	|| (selmon->sel && selmon->sel->isfloating))
