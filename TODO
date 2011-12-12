@@ -1,4 +1,12 @@
-- add a flag to Key to execute the command on release (needed for commands
-		affecting the keyboard grab, see scrot -s for example)
-- add updategeom() hook for external tools like dzen
-- consider onscreenkeyboard hooks for tablet deployment
+- Replace xerrordummy with something that actually handles errors
+  (added Mon Dec 12 11:12:34 2011, incomplete, priority medium)
+
+- Add a flag to Key to execute the command on release (needed for commands affecting the keyboard grab, see scrot -s for example)
+  (added Mon Dec 12 11:16:33 2011, incomplete, priority medium)
+
+- Add updategeom() hook for external tools like dzen
+  (added Mon Dec 12 11:16:45 2011, incomplete, priority medium)
+
+- Consider onscreenkeyboard hooks for tablet deployment
+  (added Mon Dec 12 11:16:54 2011, incomplete, priority medium)
+
