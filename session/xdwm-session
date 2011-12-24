@@ -87,7 +87,7 @@ if type -P gnome-keyring-daemon ; then
 	export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK GPG_AGENT_INFO GNOME_KEYRING_PID
 fi &> /dev/null
 
-# Usage: [S=name] service path/to/daemon [daemon-arguments...]
+# Usage: [S=name] [X=executable-path] service path/to/daemon [daemon-arguments...]
 #
 # Launches a service using dmon, redirecting stderr to stdout, storing a PID
 # file under ~/.xinit/run/<name>.pid, and connecting the output to the log
@@ -97,9 +97,10 @@ fi &> /dev/null
 #
 service ()
 {
-	local svcname=${S:-$(basename "$1")}
+	: ${X:=$1}
+	local svcname=${S:-$(basename "$X")}
 	echo -n "Starting ${svcname} ("
-	if type -P "$1" &> /dev/null
+	if type -P "$X" &> /dev/null
 	then
 		dmon -e -p "${svcname}.pid" "$@" -- dlog log.fifo
 		echo "$(< "${svcname}.pid"))"
@@ -169,7 +170,7 @@ service mpd --no-daemon --stderr
 service scmpc --foreground
 service trayer --heighttype pixel --height 18 --widthtype request \
        --edge top --align right --margin 57 --SetDockType true
-S=dwm-status service --interval 30 sh -c 'xsetroot -name "$(date +%H:%M)"'
+S=dwm-status X=sh service --interval 30 sh -c 'xsetroot -name "$(date +%H:%M)"'
 
 # Last, but not least, restore the previously-saved working directory and
 # use DMon also to launch the window manager. The “-1” flag (run once) is
