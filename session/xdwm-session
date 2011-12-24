@@ -52,7 +52,7 @@ fi
 export XDWM_DIR
 
 cwd=$(pwd)
-mkdir -p "${XDWM_DIR}"
+mkdir -p "${XDWM_DIR}/log"
 cd "${XDWM_DIR}"
 
 # Start logger process. Later on all processes are launched so they log
