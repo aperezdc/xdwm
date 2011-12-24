@@ -16,7 +16,7 @@ install:
 	install -m 755 -d $(DESTDIR)$(XSESSIONS_DIR)
 	install -m 644 -t $(DESTDIR)$(XSESSIONS_DIR) xdwm.desktop
 	install -m 755 -d $(DESTDIR)$(BINDIR)
-	install -m 644 -t $(DESTDIR)$(BINDIR) xdwm-session
+	install -m 755 -t $(DESTDIR)$(BINDIR) xdwm-session
 
 uninstall:
 	rm -f $(DESTDIR)$(XSESSIONS_DIR)/xdwm.desktop
