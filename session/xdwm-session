@@ -97,10 +97,10 @@ fi &> /dev/null
 #
 service ()
 {
-	: ${X:=$1}
-	local svcname=${S:-$(basename "$X")}
+	local exename=${X:-$1}
+	local svcname=${S:-$(basename "${exename}")}
 	echo -n "Starting ${svcname} ("
-	if type -P "$X" &> /dev/null
+	if type -P "${exename}" &> /dev/null
 	then
 		dmon -e -p "${svcname}.pid" "$@" -- dlog log.fifo
 		echo "$(< "${svcname}.pid"))"
