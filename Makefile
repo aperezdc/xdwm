@@ -6,7 +6,10 @@ include config.mk
 SRC = dwm.c
 OBJ = ${SRC:.c=.o}
 
-all: options xdwm
+all: options xdwm term/dwt
+
+term/dwt:
+	$(MAKE) -C term dwt
 
 options:
 	@echo xdwm build options:
@@ -31,6 +34,7 @@ xdwm: ${OBJ}
 clean:
 	@echo cleaning
 	@rm -f xdwm ${OBJ} xdwm-${VERSION}.tar.gz
+	@$(MAKE) -C term clean
 
 dist: clean
 	@echo creating dist tarball
@@ -42,10 +46,10 @@ dist: clean
 	@rm -rf xdwm-${VERSION}
 
 install: all
-	@echo installing executable file to ${DESTDIR}${PREFIX}/bin
+	@echo installing executable files to ${DESTDIR}${PREFIX}/bin
 	@mkdir -p ${DESTDIR}${PREFIX}/bin
-	@cp -f xdwm ${DESTDIR}${PREFIX}/bin
-	@chmod 755 ${DESTDIR}${PREFIX}/bin/xdwm
+	@cp -f xdwm term/dwt ${DESTDIR}${PREFIX}/bin
+	@chmod 755 ${DESTDIR}${PREFIX}/bin/xdwm ${DESTDIR}${PREFIX}/dwt
 	@echo installing manual page to ${DESTDIR}${MANPREFIX}/man1
 	@mkdir -p ${DESTDIR}${MANPREFIX}/man1
 	@sed "s/VERSION/${VERSION}/g" < xdwm.1 > ${DESTDIR}${MANPREFIX}/man1/xdwm.1
@@ -53,7 +57,7 @@ install: all
 
 uninstall:
 	@echo removing executable file from ${DESTDIR}${PREFIX}/bin
-	@rm -f ${DESTDIR}${PREFIX}/bin/xdwm
+	@rm -f ${DESTDIR}${PREFIX}/bin/xdwm ${DESTDIR}${PREFIX}/dwt
 	@echo removing manual page from ${DESTDIR}${MANPREFIX}/man1
 	@rm -f ${DESTDIR}${MANPREFIX}/man1/xdwm.1
 
