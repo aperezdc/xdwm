@@ -179,5 +179,5 @@ S=dwm-status X=sh service --interval 30 sh -c 'xsetroot -name "$(date +%H:%M)"'
 # it so the session will be closed once this instance of DMon exits.
 #
 cd "${cwd}"
-dmon -s -e -n -1 xdwm -- dlog ~/.xinit/run/log.fifo
+dmon -s -e -n -1 xdwm -- dlog "${XDWM_DIR}/log.fifo"
 
