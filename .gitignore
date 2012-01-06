@@ -2,3 +2,6 @@ config.h
 xdwm
 *.tar.gz
 *.o
+term/dwt
+*.tar.xz
+*.tar.gz
