@@ -31,6 +31,7 @@ xdwm: ${OBJ}
 clean:
 	@echo cleaning
 	@rm -f xdwm ${OBJ} xdwm-${VERSION}.tar.gz
+	@$(MAKE) -C session clean
 
 dist: clean
 	@echo creating dist tarball
