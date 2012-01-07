@@ -50,7 +50,7 @@ install: all
 	@echo installing executable files to ${DESTDIR}${PREFIX}/bin
 	@mkdir -p ${DESTDIR}${PREFIX}/bin
 	@cp -f xdwm term/dwt ${DESTDIR}${PREFIX}/bin
-	@chmod 755 ${DESTDIR}${PREFIX}/bin/xdwm ${DESTDIR}${PREFIX}/dwt
+	@chmod 755 ${DESTDIR}${PREFIX}/bin/xdwm ${DESTDIR}${PREFIX}/bin/dwt
 	@echo installing manual page to ${DESTDIR}${MANPREFIX}/man1
 	@mkdir -p ${DESTDIR}${MANPREFIX}/man1
 	@sed "s/VERSION/${VERSION}/g" < xdwm.1 > ${DESTDIR}${MANPREFIX}/man1/xdwm.1
