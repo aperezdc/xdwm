@@ -1,11 +1,11 @@
 pkgname=( xdwm )
 pkgver='6.0'
-pkgrel='1'
+pkgrel='2'
 pkgdesc='An extended dynamic window manager for X (dwm fork)'
 url='http://github.com/aperezdc/xdwm'
 license=( MIT )
 source=( "http://github.com/fix-me-fix-me/${pkgname}-${pkgver}.tar.gz" )
-sha1sums=( '56444dbd1491f28626c79dfb80ed72123d229772' )
+sha1sums=('59314cb751faa0ff231c92635cbf659b7203d262')
 arch=( i686 x86_64 )
 options=( zipman )
 depends=(
@@ -17,6 +17,8 @@ depends=(
 	'consolekit'
 	'gnome-settings-daemon'
 	'network-manager-applet'
+	'terminus-font'
+	'vte3'
 )
 optdepends=(
 	'pulseaudio:        launch pulseaudio at session startup'
