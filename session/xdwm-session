@@ -172,6 +172,14 @@ service trayer --heighttype pixel --height 18 --widthtype request \
        --edge top --align right --margin 57 --SetDockType true
 S=dwm-status X=sh service --interval 30 sh -c 'xsetroot -name "$(date +%H:%M)"'
 
+# Pick up the "rc" file from the user configuration directory, and source
+# it in the same environment as xdwm-session is running. This allows for
+# it to use the convenience functions defined here.
+#
+if [ -r "${XDG_CONFIG_HOME}/xdwm/rc" ] ; then
+	source "${XDG_CONFIG_HOME}/xdwm/rc"
+fi
+
 # Last, but not least, restore the previously-saved working directory and
 # use DMon also to launch the window manager. The “-1” flag (run once) is
 # passsed so it is not restarted on a proper, user-requested finalization.
