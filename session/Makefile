@@ -31,7 +31,10 @@ uninstall:
 	rm -f $(DESTDIR)$(XSESSIONS_DIR)/xdwm.desktop
 	rm -f $(DESTDIR)$(BINDIR)/xdwm-session
 
-.PHONY: install uninstall
+clean:
+	$(RM) xdwm-session.1.gz
+
+.PHONY: install uninstall clean
 
 # vim:ft=make
 #
