@@ -38,6 +38,7 @@ clean:
 	@$(MAKE) -C term clean
 
 dist: clean
+	@rm -f config.h
 	@echo creating dist tarball
 	@mkdir -p xdwm-${VERSION}
 	@cp -R LICENSE Makefile README config.def.h config.mk \
