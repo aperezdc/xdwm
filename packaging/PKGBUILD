@@ -7,7 +7,7 @@ license=( MIT )
 source=( "http://people.igalia.com/aperez/files/${pkgname}-${pkgver}.tar.gz" )
 arch=( i686 x86_64 )
 options=( zipman )
-sha1sums=( 905cdf3d530c5043f6f3a6a6ee960d50f3cca3cc )
+sha1sums=('5b79d87dcc7f31e2f08f0a4c4fe3db4c59eecbc3')
 depends=(
 	'dmon>=0.4'
 	'libx11'
