@@ -94,11 +94,12 @@ should!) be used. Plus, the following are available to use:
 FILES
 =====
 
-``$XDG_CONFIG_DIR/config/xdwm/rc``
+``$XDG_CONFIG_DIR/xdwm/rc``
 
   Shell script sourced by ``xdwm-session`` in which the user may define
   extra services to start or environment variables. See the ENVIRONMENT_
-  for a description of functions and variables useable from this file.
+  section for a description of functions and variables useable from this
+  file.
 
 ``$XDG_CONFIG_HOME/xdwm/rc.exit``
 
