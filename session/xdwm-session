@@ -102,9 +102,9 @@ service ()
 	echo -n "Starting ${svcname} ("
 	if type -P "${exename}" &> /dev/null
 	then
-		dmon -e -p "${svcname}.pid" "$@" -- dlog log.fifo
+		dmon -e -p "${svcname}.pid" "$@" -- dlog -p "${svcname}:" log.fifo
 		echo "$(< "${svcname}.pid"))"
-		echo "  dmon -e -p ${svcname}.pid $* -- dlog log.fifo"
+		echo "  dmon -e -p ${svcname}.pid $* -- dlog -p ${svcname}: log.fifo"
 	else
 		echo "not available?)"
 		rm -f "${svcname}.pid" # Just in case, stay safe.
