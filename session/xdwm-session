@@ -152,26 +152,6 @@ if type -P pulseaudio ; then
 	fi
 fi &> /dev/null
 
-# Launch a number of services...
-#
-# TODO Right now, those are tailored to the author's needs. Some generic
-#      services may be kept (g-s-d, bluetooth, NM), but others need to go
-#      away and be user-customizable.
-#
-# XXX  Maybe XDG-autostart should be taken into account here. Problem is:
-#      the commands in autostarted .desktop files are not dmon-friendly
-#      most of the time (they detach, maybe libnofork.so could be used).
-#
-service /usr/lib/gnome-settings-daemon/gnome-settings-daemon
-service gnome-screensaver --no-daemon
-service bluetooth-applet
-service nm-applet
-service mpd --no-daemon --stderr
-service scmpc --foreground
-service trayer --heighttype pixel --height 18 --widthtype request \
-       --edge top --align right --margin 57 --SetDockType true
-S=dwm-status X=sh service --interval 30 sh -c 'xsetroot -name "$(date +%H:%M)"'
-
 # Pick up the "rc" file from the user configuration directory, and source
 # it in the same environment as xdwm-session is running. This allows for
 # it to use the convenience functions defined here.
