@@ -1,0 +1,59 @@
+#! /bin/bash
+
+###############################################################
+#                                                             #
+#  Copy this file to ~/.config/xdwm/rc and modify it to your  #
+#  liking. Make sure to read the xdwm-session(1) manual page  #
+#                                                             #
+###############################################################
+
+#
+# Running the GNOME settings daemon is nice to make GTK+ apps
+# look nice (it applies the theme settings); it will configure
+# keyboard, mouse, and some other things as well.
+#
+service /usr/lib/gnome-settings-daemon/gnome-settings-daemon
+
+#
+# A PolicyKit agent is needed to unlock some of the settings
+# in the GNOME Control Center, and also allows changing the
+# network configuration and other niceties when also running
+# the NetworkManager and Bluetooth applets (see below for
+# those)
+#
+S=gnome-polkit-agent \
+service /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+
+#
+# If you use MPD (the Music Player Daemon) it can be launched by
+# xdwm-session by using the following service definition. Plus,
+# the line next to it will start scmpc to submit songs to last.fm
+#
+service mpd --no-daemon --stderr
+service scmpc --foreground
+
+#
+# This will run a no-frills clock in the XDWM status area. Note
+# that the service name and the executable name are different
+# so S= and X= have to be defined.
+#
+S=xdwm-clock X=sh \
+service --interval 30 sh -c 'xsetroot -name "$(date +%H:%M)"'
+
+#
+# Run a system tray. This is useful to have application icons
+# for NetworkManager, Bluetooth, et cetera. Those dimensions
+# will make it float over the top bar, to the left of the clock.
+#
+service trayer --heighttype pixel --height 18 --widthtype request \
+       --edge top --align right --margin 57 --SetDockType true
+
+#
+# Launch several (useful) services. Especially NetworkManager
+# and the Bluetooth applet are useful. You may want to comment
+# out gnome-screensaver and use something like xlock(1) instead.
+#
+service gnome-screensaver --no-daemon
+service bluetooth-applet
+service nm-applet
+
