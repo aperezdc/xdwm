@@ -100,6 +100,12 @@ FILES
   extra services to start or environment variables. See the ENVIRONMENT_
   for a description of functions and variables useable from this file.
 
+``$XDG_CONFIG_HOME/xdwm/rc.exit``
+
+  Shell script sourced by ``xdwm-session`` in which the user may set up
+  commands to run when closing the session. See the ENVIRONMENT_ section
+  for a description of functions and variables useable from this file.
+
 ``$XDWM_DIR/log/*``
 
   Session log. Logs are saved using `drlog(8)` and rotated automatically

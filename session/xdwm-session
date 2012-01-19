@@ -189,3 +189,11 @@ fi
 cd "${cwd}"
 dmon -s -e -n -1 xdwm -- dlog "${XDWM_DIR}/log.fifo"
 
+# If there is a "rc.exit" in the user configuration file, run it as soon
+# as the window manager exits, before the cleanup() function is run to
+# kill the processes launched with service().
+#
+if [ -r "${XDG_CONFIG_HOME}/xdwm/rc.exit" ] ; then
+	source "${XDG_CONFIG_HOME}/xdwm/rc.exit"
+fi
+
