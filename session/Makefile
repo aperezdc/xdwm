@@ -26,6 +26,8 @@ install: all
 	install -m 755 -t $(DESTDIR)$(BINDIR) xdwm-session
 	install -m 755 -d $(DESTDIR)$(MANDIR)/man1
 	install -m 644 -t $(DESTDIR)$(MANDIR)/man1 xdwm-session.1.gz
+	install -m 755 -d $(DESTDIR)/etc/xdg/xdwm
+	install -m 644 -t $(DESTDIR)/etc/xdg/xdwm rc.example
 
 uninstall:
 	rm -f $(DESTDIR)$(XSESSIONS_DIR)/xdwm.desktop
