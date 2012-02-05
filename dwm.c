@@ -214,6 +214,7 @@ static void tile(Monitor *);
 static void togglebar(const Arg *arg);
 static void togglefloating(const Arg *arg);
 static void toggletag(const Arg *arg);
+static void rollview(const Arg *arg);
 static void toggleview(const Arg *arg);
 static void unfocus(Client *c, Bool setfocus);
 static void unmanage(Client *c, Bool destroyed);
@@ -1701,6 +1702,25 @@ toggleview(const Arg *arg) {
 		focus(NULL);
 		arrange(selmon);
 	}
+}
+
+void
+rollview(const Arg *arg)
+{
+    unsigned int newtagset = selmon->tagset[selmon->seltags];
+
+    if (arg->i < 0)
+        newtagset >>= -(arg->i);
+    else
+        newtagset <<= (arg->i);
+
+    newtagset &= TAGMASK;
+
+    if (newtagset) {
+        selmon->tagset[selmon->seltags] = newtagset;
+        focus(NULL);
+        arrange(selmon);
+    }
 }
 
 void
