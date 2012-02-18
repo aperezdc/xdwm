@@ -18,11 +18,7 @@ options:
 	@echo CC $<
 	@${CC} -c ${CFLAGS} $<
 
-${OBJ}: config.h config.mk
-
-config.h:
-	@echo creating $@ from config.def.h
-	@cp config.def.h $@
+${OBJ}: config.mk
 
 xdwm: ${OBJ}
 	@echo CC -o $@
@@ -34,10 +30,9 @@ clean:
 	@$(MAKE) -C session clean
 
 dist: clean
-	@rm -f config.h
 	@echo creating dist tarball
 	@mkdir -p xdwm-${VERSION}
-	@cp -R LICENSE Makefile README config.def.h config.mk \
+	@cp -R LICENSE Makefile README config.h config.mk \
 		xdwm.1 ${SRC} session/ xdwm-${VERSION}
 	@tar -cf xdwm-${VERSION}.tar xdwm-${VERSION}
 	@gzip xdwm-${VERSION}.tar
