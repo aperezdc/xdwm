@@ -2237,8 +2237,9 @@ systray_add(Window win)
 		die("fatal: could not malloc() %u bytes\n", sizeof(Systray));
     memset(s, 0x00, sizeof(Systray));
 
+    /* Padding is subtracted twice: top+bottom / left+right */
+    s->geo.width = s->geo.height = bh - 2 * systray_padding;
     s->win = win;
-    s->geo.width = s->geo.height = bh;
 
     XSelectInput(dpy, s->win,
                  StructureNotifyMask | PropertyChangeMask| EnterWindowMask | FocusChangeMask);
@@ -2303,7 +2304,7 @@ systray_width(void)
     Systray *s;
 
     for (s = trayicons; s != NULL; s = s->next)
-        w += s->geo.width + systray_spacing;
+        w += s->geo.width + systray_spacing + 2 * systray_padding;
 
     return w;
 }
@@ -2326,10 +2327,11 @@ systray_update(void)
     for (s = trayicons; s != NULL; s = s->next) {
         XMapWindow(dpy, s->win);
         XMoveResizeWindow(dpy, s->win,
-                          s->geo.x = x, 0,
+                          s->geo.x = x,
+                          systray_padding,
                           s->geo.width,
                           s->geo.height);
-        x += s->geo.width + systray_spacing;
+        x += s->geo.width + systray_spacing + 2 * systray_padding;
     }
 
     pos -= x;
