@@ -1,4 +1,4 @@
-VERSION = 6.0.3
+VERSION = 6.0.4
 
 # Customize below to fit your system
 
