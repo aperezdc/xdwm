@@ -1815,6 +1815,7 @@ togglebar(const Arg *arg) {
 	updatebarpos(selmon);
 	XMoveResizeWindow(dpy, selmon->barwin, selmon->wx, selmon->by, selmon->ww, bh);
 	arrange(selmon);
+	systray_update();
 }
 
 void
@@ -2391,7 +2392,7 @@ systray_update(void)
     int pos = sw;
     int pos_y = topbar ? 0 : sh - bh;
 
-    if (!trayicons) {
+    if (!trayicons || !selmon->showbar) {
         pos -= 1;
         XMoveResizeWindow(dpy, traywin, pos, 0, 1, 1);
         return;
