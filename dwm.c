@@ -1777,6 +1777,7 @@ rollview(const Arg *arg)
     newtagset &= TAGMASK;
 
     if (newtagset) {
+        selmon->seltags ^= 1; /* toggle sel tagset */
         selmon->tagset[selmon->seltags] = newtagset;
         focus(NULL);
         arrange(selmon);
