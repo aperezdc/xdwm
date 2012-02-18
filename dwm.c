@@ -62,7 +62,8 @@ enum { CurNormal, CurResize, CurMove, CurLast }; /* cursor */
 enum { SchemeNorm, SchemeSel, SchemeLast }; /* color schemes */
 enum { NetSupported, NetWMName, NetWMState,
        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
-       NetWMWindowTypeDialog, NetClientList, NetLast }; /* EWMH atoms */
+       NetWMWindowTypeDialog, NetSystemTray, NetLast };     /* EWMH atoms */
+enum { XeXEmbed, XeXEmbedInfo, XeManager, XeLast }; /* XEMBED atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
@@ -140,6 +141,23 @@ typedef struct {
 	Bool isfloating;
 	int monitor;
 } Rule;
+
+
+typedef struct Systray Systray;
+
+struct Systray {
+    Window     win;
+    XRectangle geo;
+    Systray    *next;
+};
+
+static Systray *trayicons = NULL;
+static Window   traywin   = 0;
+
+#define XE_MAPPED            (1 << 0)
+#define XE_EMBEDDED_NOTIFY    0
+#define XE_WINDOW_ACTIVATE    1
+#define XE_WINDOW_DEACTIVATE  2
 
 /* function declarations */
 static void applyrules(Client *c);
@@ -237,6 +255,18 @@ static int xerrordummy(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
 static void zoom(const Arg *arg);
 
+static Bool     systray_acquire(void);
+static void     systray_add(Window win);
+static void     systray_del(Systray *s);
+static void     systray_freeicons(void);
+static Systray* systray_find(Window win);
+static int      systray_width(void);
+static void     systray_update(void);
+static void     systray_state(Systray *s);
+static long     ewmh_xembed_state(Window win);
+static void     ewmh_message(Window d, Window w, Atom atom,
+                             long d0, long d1, long d2, long d3, long d4);
+
 /* variables */
 static Arg focusdirection={.i=1};
 static const char broken[] = "broken";
@@ -262,7 +292,7 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[PropertyNotify] = propertynotify,
 	[UnmapNotify] = unmapnotify
 };
-static Atom wmatom[WMLast], netatom[NetLast];
+static Atom wmatom[WMLast], netatom[NetLast], xeatom[XeLast];
 static Bool running = True;
 static Cur *cursor[CurLast];
 static ClrScheme scheme[SchemeLast];
@@ -524,6 +554,15 @@ clientmessage(XEvent *e) {
 	XClientMessageEvent *cme = &e->xclient;
 	Client *c = wintoclient(cme->window);
 
+    if (cme->window == traywin &&
+        cme->data.l[1] == XE_EMBEDDED_NOTIFY)
+    {
+        systray_add(cme->data.l[2]);
+        systray_update();
+        updatestatus();
+        return;
+    }
+
 	if(!c)
 		return;
 	if(cme->message_type == netatom[NetWMState]) {
@@ -653,10 +692,15 @@ createmon(void) {
 void
 destroynotify(XEvent *e) {
 	Client *c;
+	Systray *s;
 	XDestroyWindowEvent *ev = &e->xdestroywindow;
 
 	if((c = wintoclient(ev->window)))
 		unmanage(c, True);
+    else if ((s = systray_find(ev->window))) {
+        systray_del(s);
+        systray_update();
+    }
 }
 
 void
@@ -721,11 +765,11 @@ drawbar(Monitor *m) {
 	x += w;
 	xx = x;
 	if(m == selmon) { /* status is only drawn on selected monitor */
-		w = TEXTW(stext);
-		x = m->ww - w;
-		if(x < xx) {
-			x = xx;
-			w = m->ww - xx;
+		dc.w = TEXTW(stext);
+		dc.x = m->ww - dc.w - systray_width();
+		if(dc.x < x) {
+			dc.x = x;
+			dc.w = m->ww - x;
 		}
 		drw_text(drw, x, 0, w, bh, stext, 0);
 	}
@@ -1218,8 +1262,14 @@ pop(Client *c) {
 void
 propertynotify(XEvent *e) {
 	Client *c;
+	Systray *s;
 	Window trans;
 	XPropertyEvent *ev = &e->xproperty;
+
+    if ((s = systray_find(ev->window))) {
+        systray_state(s);
+        systray_update();
+    }
 
 	if((ev->window == root) && (ev->atom == XA_WM_NAME))
 		updatestatus();
@@ -1546,7 +1596,15 @@ setup(void) {
 	netatom[NetWMFullscreen] = XInternAtom(dpy, "_NET_WM_STATE_FULLSCREEN", False);
 	netatom[NetWMWindowType] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
 	netatom[NetWMWindowTypeDialog] = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
-	netatom[NetClientList] = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
+	xeatom[XeXEmbed] = XInternAtom(dpy, "_XEMBED", False);
+	xeatom[XeXEmbedInfo] = XInternAtom(dpy, "_XEMBED_INFO", False);
+	xeatom[XeManager] = XInternAtom(dpy, "MANAGER", False);
+    {
+        char as[48];
+        int scrnum = XScreenNumberOfScreen(XDefaultScreenOfDisplay(dpy));
+        snprintf(as, sizeof(as), "_NET_SYSTEM_TRAY_S%i", scrnum);
+        netatom[NetSystemTray] = XInternAtom(dpy, as, False);
+    }
 	/* init cursors */
 	cursor[CurNormal] = drw_cur_create(drw, XC_left_ptr);
 	cursor[CurResize] = drw_cur_create(drw, XC_sizing);
@@ -1561,6 +1619,7 @@ setup(void) {
 	/* init bars */
 	updatebars();
 	updatestatus();
+	systray_acquire();
 	/* EWMH support per view */
 	XChangeProperty(dpy, root, netatom[NetSupported], XA_ATOM, 32,
 			PropModeReplace, (unsigned char *) netatom, NetLast);
@@ -1763,6 +1822,7 @@ unmanage(Client *c, Bool destroyed) {
 void
 unmapnotify(XEvent *e) {
 	Client *c;
+	Systray *s;
 	XUnmapEvent *ev = &e->xunmap;
 
 	if((c = wintoclient(ev->window))) {
@@ -1771,6 +1831,11 @@ unmapnotify(XEvent *e) {
 		else
 			unmanage(c, False);
 	}
+
+	if ((s = systray_find(ev->window))) {
+	    systray_del(s);
+	    systray_update();
+    }
 }
 
 void
@@ -2119,3 +2184,230 @@ main(int argc, char *argv[]) {
 	XCloseDisplay(dpy);
 	return EXIT_SUCCESS;
 }
+
+
+Bool
+systray_acquire(void)
+{
+    XSetWindowAttributes wattr;
+
+    if (XGetSelectionOwner(dpy, netatom[NetSystemTray]) != None) {
+        fprintf(stderr, "Can't initialize system tray: owned by another process\n");
+        return False;
+    }
+
+    /* Initialize tray window */
+    wattr.event_mask        = ButtonPressMask | ExposureMask;
+    wattr.override_redirect = True;
+    wattr.background_pixmap = ParentRelative;
+    wattr.background_pixel  = dc.norm[ColBG];
+
+    traywin = XCreateSimpleWindow(dpy, root, 0, 0, 1, 1, 0, 0, dc.norm[ColBG]);
+
+    XChangeWindowAttributes(dpy,
+                            traywin,
+                            CWEventMask | CWOverrideRedirect | CWBackingPixel,
+                            &wattr);
+    XSelectInput(dpy, traywin, KeyPressMask | ButtonPressMask);
+    XMapRaised(dpy, traywin);
+    XSetSelectionOwner(dpy, netatom[NetSystemTray], traywin, CurrentTime);
+    if (XGetSelectionOwner(dpy, netatom[NetSystemTray]) != traywin) {
+        systray_freeicons();
+        fprintf(stderr, "Can't get systray manager\n");
+        return False;
+    }
+
+    ewmh_message(root, root,
+                 xeatom[XeManager], CurrentTime,
+                 netatom[NetSystemTray],
+                 traywin, 0, 0);
+    XSync(dpy, False);
+    return True;
+}
+
+
+void
+systray_add(Window win)
+{
+    Systray *s;
+
+    if ((s = (Systray*) malloc(sizeof(Systray))) == NULL)
+		die("fatal: could not malloc() %u bytes\n", sizeof(Systray));
+    memset(s, 0x00, sizeof(Systray));
+
+    s->win = win;
+    s->geo.width = s->geo.height = bh;
+
+    XSelectInput(dpy, s->win,
+                 StructureNotifyMask | PropertyChangeMask| EnterWindowMask | FocusChangeMask);
+    XReparentWindow(dpy, s->win, traywin, 0, 0);
+
+    s->next = trayicons;
+    trayicons = s;
+}
+
+
+void
+systray_del(Systray *s)
+{
+    if (s == trayicons) {
+        trayicons = s->next;
+    }
+    else {
+        Systray *prev = trayicons;
+        while (prev->next != s) {
+            prev = prev->next;
+        }
+        prev->next = s->next;
+    }
+    free(s);
+}
+
+
+void
+systray_freeicons(void)
+{
+    Systray *s;
+
+    for (s = trayicons; s != NULL; s = s->next) {
+        XUnmapWindow(dpy, s->win);
+        XReparentWindow(dpy, s->win, root, 0, 0);
+    }
+
+    XSetSelectionOwner(dpy, netatom[NetSystemTray], None, CurrentTime);
+    XDestroyWindow(dpy, traywin);
+    XSync(dpy, False);
+    traywin = 0;
+}
+
+
+Systray*
+systray_find(Window win)
+{
+    Systray *s;
+    for (s = trayicons; s != NULL; s = s->next) {
+        if (s->win == win) {
+            return s;
+        }
+    }
+    return NULL;
+}
+
+
+int
+systray_width(void)
+{
+    int w = 0;
+    Systray *s;
+
+    for (s = trayicons; s != NULL; s = s->next)
+        w += s->geo.width + systray_spacing;
+
+    return w;
+}
+
+
+void
+systray_update(void)
+{
+    Systray *s;
+    int x = 1;
+    int pos = sw;
+    int pos_y = topbar ? 0 : sh - bh;
+
+    if (!trayicons) {
+        pos -= 1;
+        XMoveResizeWindow(dpy, traywin, pos, 0, 1, 1);
+        return;
+    }
+
+    for (s = trayicons; s != NULL; s = s->next) {
+        XMapWindow(dpy, s->win);
+        XMoveResizeWindow(dpy, s->win,
+                          s->geo.x = x, 0,
+                          s->geo.width,
+                          s->geo.height);
+        x += s->geo.width + systray_spacing;
+    }
+
+    pos -= x;
+    XMoveResizeWindow(dpy, traywin, pos, pos_y, x, bh);
+}
+
+
+void
+systray_state(Systray *s)
+{
+    long flags;
+    int code = 0;
+    long data[2] = { 0, None };
+
+    if (!(flags = ewmh_xembed_state(s->win)))
+        return;
+
+    if (flags & XE_MAPPED) {
+        code = XE_WINDOW_ACTIVATE;
+        XMapRaised(dpy, s->win);
+        data[0] = NormalState;
+    }
+    else {
+        code = XE_WINDOW_DEACTIVATE;
+        XUnmapWindow(dpy, s->win);
+        data[0] = WithdrawnState;
+    }
+
+    XChangeProperty(dpy, s->win,
+                    wmatom[WMState],
+                    wmatom[WMState],
+                    32,
+                    PropModeReplace,
+                    (unsigned char*) data,
+                    2);
+
+    ewmh_message(s->win, s->win, xeatom[XeXEmbed], CurrentTime, code, 0, 0, 0);
+}
+
+
+long
+ewmh_xembed_state(Window win)
+{
+    Atom rf;
+    int f;
+    unsigned long n, il;
+    long ret = 0;
+    unsigned char *data = NULL;
+
+    if (XGetWindowProperty(dpy, win,
+                           xeatom[XeXEmbedInfo], 0L, 2, False,
+                           xeatom[XeXEmbedInfo], &rf, &f, &n, &il, &data) != Success)
+        return 0;
+
+    if (rf == xeatom[XeXEmbedInfo] && n == 2)
+        ret = (long) data[1];
+
+    if (n && data)
+        XFree(data);
+
+    return ret;
+}
+
+
+void
+ewmh_message(Window d, Window w, Atom atom, long d0, long d1, long d2, long d3, long d4)
+{
+    XClientMessageEvent e;
+
+    e.type          = ClientMessage;
+    e.message_type  = atom;
+    e.window        = w;
+    e.format        = 32;
+    e.data.l[0]     = d0;
+    e.data.l[1]     = d1;
+    e.data.l[2]     = d2;
+    e.data.l[3]     = d3;
+    e.data.l[4]     = d4;
+
+    XSendEvent(dpy, d, False, StructureNotifyMask, (XEvent*) &e);
+    XSync(dpy, False);
+}
+

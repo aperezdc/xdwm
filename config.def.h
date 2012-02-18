@@ -111,3 +111,6 @@ static Button buttons[] = {
 	{ ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
 };
 
+/* Spacing of system tray icons, in pixels */
+static const int systray_spacing = 2;
+
