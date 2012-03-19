@@ -2202,9 +2202,9 @@ systray_acquire(void)
     wattr.event_mask        = ButtonPressMask | ExposureMask;
     wattr.override_redirect = True;
     wattr.background_pixmap = ParentRelative;
-    wattr.background_pixel  = dc.norm[ColBG];
+    wattr.background_pixel  = dc.norm[ColFG];
 
-    traywin = XCreateSimpleWindow(dpy, root, 0, 0, 1, 1, 0, 0, dc.norm[ColBG]);
+    traywin = XCreateSimpleWindow(dpy, root, 0, 0, 1, 1, 0, 0, dc.norm[ColFG]);
 
     XChangeWindowAttributes(dpy,
                             traywin,
