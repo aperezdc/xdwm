@@ -115,5 +115,5 @@ static Button buttons[] = {
 static const int systray_spacing = 1;
 
 /* Padding (internal) of system tray icons, in pixels */
-static const int systray_padding = 2;
+static const int systray_padding = 1;
 
