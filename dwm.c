@@ -61,7 +61,7 @@ enum { CurNormal, CurResize, CurMove, CurLast };        /* cursor */
 enum { ColBorder, ColFG, ColBG, ColLast };              /* color */
 enum { NetSupported, NetWMName, NetWMState,
        NetWMFullscreen, NetActiveWindow, NetWMWindowType,
-       NetWMWindowTypeDialog, NetSystemTray, NetLast };     /* EWMH atoms */
+       NetWMWindowTypeDialog, NetClientList, NetSystemTray, NetLast };     /* EWMH atoms */
 enum { XeXEmbed, XeXEmbedInfo, XeManager, XeLast }; /* XEMBED atoms */
 enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms */
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
@@ -259,6 +259,7 @@ static void unmapnotify(XEvent *e);
 static Bool updategeom(void);
 static void updatebarpos(Monitor *m);
 static void updatebars(void);
+static void updateclientlist(void);
 static void updatenumlockmask(void);
 static void updatesizehints(Client *c);
 static void updatestatus(void);
@@ -533,6 +534,7 @@ cleanup(void) {
 		cleanupmon(mons);
 	XSync(dpy, False);
 	XSetInputFocus(dpy, PointerRoot, RevertToPointerRoot, CurrentTime);
+	XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
 }
 
 void
@@ -906,8 +908,10 @@ focus(Client *c) {
 		XSetWindowBorder(dpy, c->win, dc.sel[ColBorder]);
 		setfocus(c);
 	}
-	else
+	else {
 		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
+		XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+	}
 	selmon->sel = c;
 	drawbars();
 }
@@ -1215,6 +1219,8 @@ manage(Window w, XWindowAttributes *wa) {
 		XRaiseWindow(dpy, c->win);
 	attach(c);
 	attachstack(c);
+	XChangeProperty(dpy, root, netatom[NetClientList], XA_WINDOW, 32, PropModeAppend,
+	                (unsigned char *) &(c->win), 1);
 	XMoveResizeWindow(dpy, c->win, c->x + 2 * sw, c->y, c->w, c->h); /* some windows require this */
 	setclientstate(c, NormalState);
 	if (c->mon == selmon)
@@ -1596,8 +1602,12 @@ sendevent(Client *c, Atom proto) {
 
 void
 setfocus(Client *c) {
-	if(!c->neverfocus)
+	if(!c->neverfocus) {
 		XSetInputFocus(dpy, c->win, RevertToPointerRoot, CurrentTime);
+		XChangeProperty(dpy, root, netatom[NetActiveWindow],
+ 		                XA_WINDOW, 32, PropModeReplace,
+ 		                (unsigned char *) &(c->win), 1);
+	}
 	sendevent(c, wmatom[WMTakeFocus]);
 }
 
@@ -1686,6 +1696,7 @@ setup(void) {
 	xeatom[XeXEmbed] = XInternAtom(dpy, "_XEMBED", False);
 	xeatom[XeXEmbedInfo] = XInternAtom(dpy, "_XEMBED_INFO", False);
 	xeatom[XeManager] = XInternAtom(dpy, "MANAGER", False);
+	netatom[NetClientList] = XInternAtom(dpy, "_NET_CLIENT_LIST", False);
     {
         char as[48];
         int scrnum = XScreenNumberOfScreen(XDefaultScreenOfDisplay(dpy));
@@ -1715,6 +1726,7 @@ setup(void) {
 	/* EWMH support per view */
 	XChangeProperty(dpy, root, netatom[NetSupported], XA_ATOM, 32,
 			PropModeReplace, (unsigned char *) netatom, NetLast);
+	XDeleteProperty(dpy, root, netatom[NetClientList]);
 	/* select for events */
 	wa.cursor = cursor[CurNormal];
 	wa.event_mask = SubstructureRedirectMask|SubstructureNotifyMask|ButtonPressMask|PointerMotionMask
@@ -1889,8 +1901,10 @@ unfocus(Client *c, Bool setfocus) {
 		return;
 	grabbuttons(c, False);
 	XSetWindowBorder(dpy, c->win, dc.norm[ColBorder]);
-	if(setfocus)
+	if(setfocus) {
 		XSetInputFocus(dpy, root, RevertToPointerRoot, CurrentTime);
+		XDeleteProperty(dpy, root, netatom[NetActiveWindow]);
+	}
 }
 
 void
@@ -1914,6 +1928,7 @@ unmanage(Client *c, Bool destroyed) {
 	}
 	free(c);
 	focus(NULL);
+	updateclientlist();
 	arrange(m);
 }
 
@@ -1966,6 +1981,19 @@ updatebarpos(Monitor *m) {
 	}
 	else
 		m->by = -bh;
+}
+
+void
+updateclientlist() {
+	Client *c;
+	Monitor *m;
+
+	XDeleteProperty(dpy, root, netatom[NetClientList]);
+	for(m = mons; m; m = m->next)
+		for(c = m->clients; c; c = c->next)
+			XChangeProperty(dpy, root, netatom[NetClientList],
+			                XA_WINDOW, 32, PropModeAppend,
+			                (unsigned char *) &(c->win), 1);
 }
 
 Bool
