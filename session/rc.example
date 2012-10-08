@@ -42,10 +42,8 @@ service --interval 30 sh -c 'xsetroot -name "$(date +%H:%M)"'
 
 #
 # Launch several (useful) services. Especially NetworkManager
-# and the Bluetooth applet are useful. You may want to comment
-# out gnome-screensaver and use something like xlock(1) instead.
+# and the Bluetooth applet are useful.
 #
-service gnome-screensaver --no-daemon
 service bluetooth-applet
 service nm-applet
 
