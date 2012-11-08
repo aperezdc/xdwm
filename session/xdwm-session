@@ -5,20 +5,27 @@
 # will be connected to a “seat” (e.g. ability to suspend the machine or
 # to mount removable USB devices).
 #
+# If systemd is being used (as in modern GNU/Linux boxen), the variable
+# XDG_SESSION_ID will be already set in the environment, meaning that
+# systemd-logind made the needed work already, and ConsoleKit does not
+# need to be initialized.
+#
 # XXX Note that we always reload ourselves when Bash is not being used
 #     to ensure that a featureful, well-known shell is in use. After
 #     the relaunch, Bash-specific features can (and should!) be used.
 #
-if [ -z "${__XDWM_SESSION_RELAUNCH}" ]
-then
-	export __XDWM_SESSION_RELAUNCH=1
-  if [ -x /usr/bin/ck-launch-session ] ; then
-		exec /usr/bin/ck-launch-session /bin/bash "$0" "$@"
-	elif [ -z "${BASH}" ] ; then
-		exec /bin/bash "$0" "$@"
+if [ -z "${XDG_SESSION_ID}" ] ; then
+	if [ -z "${__XDWM_SESSION_RELAUNCH}" ]
+	then
+		export __XDWM_SESSION_RELAUNCH=1
+		if [ -x /usr/bin/ck-launch-session ] ; then
+			exec /usr/bin/ck-launch-session /bin/bash "$0" "$@"
+		elif [ -z "${BASH}" ] ; then
+			exec /bin/bash "$0" "$@"
+		fi
 	fi
+	unset __XDWM_SESSION_RELAUNCH
 fi
-unset __XDWM_SESSION_RELAUNCH
 
 # Choose a reasonable web browser. The list of options is in order of
 # preference. If a browser is already defined, or none of them is found,
