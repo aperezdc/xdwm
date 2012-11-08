@@ -54,6 +54,7 @@ static const char *dmenucmd[] = { "dmenu_run", "-fn", font, "-nb", normbgcolor, 
 static const char *termcmd[]  = { "dwt", NULL };
 static const char *ssuspcmd[] = { "systemctl", "suspend" };
 static const char *lockcmd[]  = { "alock", "-auth", "pam" };
+static const char *xdwmcmd[]  = { "xdwm" };
 
 
 static Key keys[] = {
@@ -62,6 +63,7 @@ static Key keys[] = {
     { MODKEY|ShiftMask,             XK_Return, spawn,          {.v = termcmd  } },
     { MODKEY|ShiftMask|ControlMask, XK_l,      spawn,          {.v = lockcmd  } },
     { MODKEY|ShiftMask|ControlMask, XK_s,      spawn,          {.v = ssuspcmd } },
+    { MODKEY|ShiftMask|ControlMask, XK_r,      replace,        {.v = xdwmcmd  } },
     { MODKEY,                       XK_b,      togglebar,      {0} },
     { MODKEY,                       XK_s,      swapfocus,      {0} },
     { MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
