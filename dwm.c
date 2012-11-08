@@ -226,6 +226,7 @@ static void setup(void);
 static void showhide(Client *c);
 static void sigchld(int unused);
 static void spawn(const Arg *arg);
+static void replace(const Arg *arg);
 static void tag(const Arg *arg);
 static void tagmon(const Arg *arg);
 static void tile(Monitor *);
@@ -1667,10 +1668,23 @@ spawn(const Arg *arg) {
 			close(ConnectionNumber(dpy));
 		setsid();
 		execvp(((char **)arg->v)[0], (char **)arg->v);
-		fprintf(stderr, "dwm: execvp %s", ((char **)arg->v)[0]);
+		fprintf(stderr, "xdwm: execvp %s", ((char **)arg->v)[0]);
 		perror(" failed");
 		exit(EXIT_SUCCESS);
 	}
+}
+
+void
+replace(const Arg *arg)
+{
+    if (dpy) {
+        systray_freeicons();
+        close(ConnectionNumber(dpy));
+    }
+    execvp(((char **)arg->v)[0], (char **)arg->v);
+    fprintf(stderr, "xdwm: execvp %s", ((char **)arg->v)[0]);
+    perror(" failed");
+    exit(EXIT_SUCCESS);
 }
 
 void
