@@ -1,7 +1,8 @@
 /* See LICENSE file for copyright and license details. */
 
 /* appearance */
-static const char font[]            = "-*-gohufont-medium-r-normal-*-14-*-*-*-*-*-iso10646-1";
+static const char font[]            = "gohufont:antialias=false:pixelsize=14:autohint=false";
+static const char xfont[]           = "-*-gohufont-medium-r-normal-*-14-*-*-*-*-*-iso10646-1";
 static const char normbordercolor[] = "#444444";
 static const char normbgcolor[]     = "#222222";
 static const char normfgcolor[]     = "#bbbbbb";
@@ -50,7 +51,7 @@ static const Layout layouts[] = {
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
 /* commands */
-static const char *dmenucmd[] = { "dmenu_run", "-fn", font, "-nb", normbgcolor, "-nf", normfgcolor, "-sb", selbgcolor, "-sf", selfgcolor, NULL };
+static const char *dmenucmd[] = { "dmenu_run", "-fn", xfont, "-nb", normbgcolor, "-nf", normfgcolor, "-sb", selbgcolor, "-sf", selfgcolor, NULL };
 static const char *termcmd[]  = { "dwt", NULL };
 static const char *ssuspcmd[] = { "systemctl", "suspend" };
 static const char *lockcmd[]  = { "alock", "-auth", "pam" };
