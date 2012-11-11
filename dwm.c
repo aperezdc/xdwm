@@ -193,6 +193,7 @@ static void expose(XEvent *e);
 static void focus(Client *c);
 static void focusin(XEvent *e);
 static void focusmon(const Arg *arg);
+static void selectmon(Monitor *m);
 static void focusstack(const Arg *arg);
 static void swapfocus();
 static unsigned long getcolor(const char *colstr);
@@ -472,7 +473,7 @@ buttonpress(XEvent *e) {
 	/* focus monitor if necessary */
 	if((m = wintomon(ev->window)) && m != selmon) {
 		unfocus(selmon->sel, True);
-		selmon = m;
+		selectmon(m);
 		focus(NULL);
 	}
 	if(ev->window == selmon->barwin) {
@@ -822,7 +823,7 @@ enternotify(XEvent *e) {
 	m = c ? c->mon : wintomon(ev->window);
 	if(m != selmon) {
 		unfocus(selmon->sel, True);
-		selmon = m;
+		selectmon(m);
 	}
 	else if(!c || c == selmon->sel)
 		return;
@@ -847,7 +848,7 @@ focus(Client *c) {
 		unfocus(selmon->sel, False);
 	if(c) {
 		if(c->mon != selmon)
-			selmon = c->mon;
+			selectmon(c->mon);
 		if(c->isurgent)
 			clearurgent(c);
 		detachstack(c);
@@ -872,6 +873,14 @@ focusin(XEvent *e) { /* there are some broken focus acquiring clients */
 		setfocus(selmon->sel);
 }
 
+
+void
+selectmon(Monitor *m)
+{
+    selmon = m;
+    trayupdate();
+}
+
 void
 focusmon(const Arg *arg) {
 	Monitor *m;
@@ -882,7 +891,7 @@ focusmon(const Arg *arg) {
 		return;
 	unfocus(selmon->sel, False); /* s/True/False/ fixes input focus issues
 					in gedit and anjuta */
-	selmon = m;
+	selectmon(m);
 	focus(NULL);
 }
 
@@ -1191,7 +1200,7 @@ motionnotify(XEvent *e) {
 		return;
 	if((m = recttomon(ev->x_root, ev->y_root, 1, 1)) != mon && mon) {
 		unfocus(selmon->sel, True);
-		selmon = m;
+		selectmon(m);
 		focus(NULL);
 	}
 	mon = m;
@@ -1251,7 +1260,7 @@ movemouse(const Arg *arg) {
 	XUngrabPointer(dpy, CurrentTime);
 	if((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) {
 		sendmon(c, m);
-		selmon = m;
+		selectmon(m);
 		focus(NULL);
 	}
 }
@@ -1394,7 +1403,7 @@ resizemouse(const Arg *arg) {
 	while(XCheckMaskEvent(dpy, EnterWindowMask, &ev));
 	if((m = recttomon(c->x, c->y, c->w, c->h)) != selmon) {
 		sendmon(c, m);
-		selmon = m;
+		selectmon(m);
 		focus(NULL);
 	}
 }
@@ -1956,7 +1965,7 @@ updategeom(void) {
 					attachstack(c);
 				}
 				if(m == selmon)
-					selmon = mons;
+					selectmon(mons);
 				cleanupmon(m);
 			}
 		}
@@ -1976,8 +1985,8 @@ updategeom(void) {
 		}
 	}
 	if(dirty) {
-		selmon = mons;
-		selmon = wintomon(root);
+		selectmon(mons);
+		selectmon(wintomon(root));
 	}
 	return dirty;
 }
@@ -2335,16 +2344,13 @@ void
 trayupdate(void)
 {
     TrayIcon *icon;
-    int x = 1;
-    int pos = sw;
-    int pos_y = topbar ? 0 : sh - bh;
+    unsigned x = 1;
 
     if (!tray_enabled)
         return;
 
-    if (TAILQ_EMPTY(&trayicons) || !selmon->showbar) {
-        pos -= 1;
-        XMoveResizeWindow(dpy, traywin, pos, 0, 1, 1);
+    if (TAILQ_EMPTY(&trayicons)) {
+        XMoveResizeWindow(dpy, traywin, 0, -1, 1, 1);
         return;
     }
 
@@ -2358,7 +2364,5 @@ trayupdate(void)
                           icon->geometry.height);
         x += icon->geometry.width + tray_spacing + 2 * tray_padding;
     }
-
-    pos -= x;
-    XMoveResizeWindow(dpy, traywin, pos, pos_y, x, bh);
+    XMoveResizeWindow(dpy, traywin, selmon->wx + selmon->ww - x, selmon->by, x, bh);
 }
