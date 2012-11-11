@@ -1,8 +1,8 @@
 /* See LICENSE file for copyright and license details. */
 
 /* appearance */
-static const char font[]            = "gohufont:antialias=false:pixelsize=14:autohint=false";
-static const char xfont[]           = "-*-gohufont-medium-r-normal-*-14-*-*-*-*-*-iso10646-1";
+static const char font[]            = "terminus:antialias=false:pixelsize=14:autohint=false";
+static const char xfont[]           = "-*-terminus-medium-r-normal-*-14-*-*-*-*-*-iso10646-1";
 static const char normbordercolor[] = "#444444";
 static const char normbgcolor[]     = "#222222";
 static const char normfgcolor[]     = "#bbbbbb";
