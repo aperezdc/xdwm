@@ -53,9 +53,9 @@ static const Layout layouts[] = {
 /* commands */
 static const char *dmenucmd[] = { "dmenu_run", "-fn", xfont, "-nb", normbgcolor, "-nf", normfgcolor, "-sb", selbgcolor, "-sf", selfgcolor, NULL };
 static const char *termcmd[]  = { "uxterm", NULL };
-static const char *ssuspcmd[] = { "systemctl", "suspend" };
-static const char *lockcmd[]  = { "alock", "-auth", "pam" };
-static const char *xdwmcmd[]  = { "xdwm" };
+static const char *ssuspcmd[] = { "systemctl", "suspend", NULL };
+static const char *lockcmd[]  = { "alock", "-auth", "pam", NULL };
+static const char *xdwmcmd[]  = { "xdwm", NULL };
 
 
 static Key keys[] = {
