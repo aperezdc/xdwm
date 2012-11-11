@@ -33,7 +33,7 @@ dist: clean
 	@echo creating dist tarball
 	@mkdir -p xdwm-${VERSION}
 	@cp -R LICENSE Makefile README config.h config.mk \
-		xdwm.1 ${SRC} session/ xdwm-${VERSION}
+		xdwm.1 ${SRC} queue.h session/ xdwm-${VERSION}
 	@tar -cf xdwm-${VERSION}.tar xdwm-${VERSION}
 	@gzip xdwm-${VERSION}.tar
 	@rm -rf xdwm-${VERSION}
