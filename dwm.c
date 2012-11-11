@@ -1051,6 +1051,22 @@ incnmaster(const Arg *arg) {
 	arrange(selmon);
 }
 
+void
+initfont(const char *fontstr) {
+
+	if (fontstr[0] == '-')
+	    dc.font.xfont = XftFontOpenXlfd(dpy, screen, fontstr);
+    else
+	    dc.font.xfont = XftFontOpenName(dpy, screen, fontstr);
+
+	if (!dc.font.xfont && !(dc.font.xfont = XftFontOpenName(dpy,screen,"fixed")))
+		die("error, cannot load font: '%s'\n", fontstr);
+
+	dc.font.ascent = dc.font.xfont->ascent;
+	dc.font.descent = dc.font.xfont->descent;
+	dc.font.height = dc.font.ascent + dc.font.descent;
+}
+
 #ifdef XINERAMA
 static Bool
 isuniquegeom(XineramaScreenInfo *unique, size_t n, XineramaScreenInfo *info) {
