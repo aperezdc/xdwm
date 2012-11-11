@@ -20,6 +20,7 @@
  *
  * To understand everything else, start reading main().
  */
+#include "queue.h"
 #include <errno.h>
 #include <locale.h>
 #include <stdarg.h>
@@ -143,16 +144,21 @@ typedef struct {
 } Rule;
 
 
-typedef struct Systray Systray;
+TAILQ_HEAD (Tray, TrayIcon);
 
-struct Systray {
-    Window     win;
-    XRectangle geo;
-    Systray    *next;
+struct TrayIcon
+{
+    Window     window;
+    XRectangle geometry;
+
+    TAILQ_ENTRY(TrayIcon) list;
 };
 
-static Systray *trayicons = NULL;
-static Window   traywin   = 0;
+typedef struct TrayIcon TrayIcon;
+typedef struct Tray Tray;
+
+static Tray   trayicons = TAILQ_HEAD_INITIALIZER(trayicons);
+static Window traywin   = 0;
 
 #define XE_MAPPED            (1 << 0)
 #define XE_EMBEDDED_NOTIFY    0
@@ -256,17 +262,29 @@ static int xerrordummy(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
 static void zoom(const Arg *arg);
 
-static Bool     systray_acquire(void);
-static void     systray_add(Window win);
-static void     systray_del(Systray *s);
-static void     systray_freeicons(void);
-static Systray* systray_find(Window win);
-static int      systray_width(void);
-static void     systray_update(void);
-static void     systray_state(Systray *s);
-static long     ewmh_xembed_state(Window win);
-static void     ewmh_message(Window d, Window w, Atom atom,
-                             long d0, long d1, long d2, long d3, long d4);
+static Bool trayinit(void);
+static void trayadd(Window);
+static void traydel(TrayIcon*);
+static void trayclear(void);
+static TrayIcon* trayicon(Window);
+static unsigned traywidth(void);
+static void trayupdate(void);
+
+
+static inline void*
+_malloc0(size_t nbytes, unsigned nitems, const char* file, unsigned line)
+{
+    size_t size = nbytes * nitems;
+    void *ptr = malloc(size);
+    if (!ptr)
+        die("%s:%u: could not allocate %lu bytes of memory",
+            file, line, (unsigned long) size);
+    return memset(ptr, 0, size);
+}
+
+#define mem_new(type, num) \
+    ((type*) _malloc0(sizeof(type), (num), __FILE__, __LINE__))
+
 
 /* variables */
 static Arg focusdirection={.i=1};
@@ -499,6 +517,7 @@ cleanup(void) {
 	Layout foo = { "", NULL };
 	Monitor *m;
 
+	trayclear();
 	view(&a);
 	selmon->lt[selmon->sellt] = &foo;
 	for(m = mons; m; m = m->next)
@@ -555,13 +574,9 @@ clientmessage(XEvent *e) {
 	XClientMessageEvent *cme = &e->xclient;
 	Client *c = wintoclient(cme->window);
 
-    if (cme->window == traywin &&
-        cme->data.l[1] == XE_EMBEDDED_NOTIFY)
-    {
-        systray_add(cme->data.l[2]);
-        systray_update();
+    if (cme->window == traywin && cme->data.l[1] == XE_EMBEDDED_NOTIFY) {
+        trayadd(cme->data.l[2]);
         updatestatus();
-        return;
     }
 
 	if(!c)
@@ -675,10 +690,7 @@ configurerequest(XEvent *e) {
 
 Monitor *
 createmon(void) {
-	Monitor *m;
-
-	if(!(m = (Monitor *)calloc(1, sizeof(Monitor))))
-		die("fatal: could not malloc() %u bytes\n", sizeof(Monitor));
+	Monitor *m = mem_new(Monitor, 1);
 	m->tagset[0] = m->tagset[1] = 1;
 	m->mfact = mfact;
 	m->nmaster = nmaster;
@@ -693,15 +705,14 @@ createmon(void) {
 void
 destroynotify(XEvent *e) {
 	Client *c;
-	Systray *s;
+	TrayIcon *icon;
 	XDestroyWindowEvent *ev = &e->xdestroywindow;
+
+    if ((icon = trayicon(ev->window)))
+        traydel(icon);
 
 	if((c = wintoclient(ev->window)))
 		unmanage(c, True);
-    else if ((s = systray_find(ev->window))) {
-        systray_del(s);
-        systray_update();
-    }
 }
 
 void
@@ -767,7 +778,7 @@ drawbar(Monitor *m) {
 	xx = x;
 	if(m == selmon) { /* status is only drawn on selected monitor */
 		dc.w = TEXTW(stext);
-		dc.x = m->ww - dc.w - systray_width();
+		dc.x = m->ww - dc.w - traywidth();
 		if(dc.x < x) {
 			dc.x = x;
 			dc.w = m->ww - x;
@@ -1075,12 +1086,11 @@ killclient(const Arg *arg) {
 
 void
 manage(Window w, XWindowAttributes *wa) {
-	Client *c, *t = NULL;
+	Client *c = mem_new(Client, 1);
+	Client *t;
 	Window trans = None;
 	XWindowChanges wc;
 
-	if(!(c = calloc(1, sizeof(Client))))
-		die("fatal: could not malloc() %u bytes\n", sizeof(Client));
 	c->win = w;
 	updatetitle(c);
 	if(XGetTransientForHint(dpy, w, &trans) && (t = wintoclient(trans))) {
@@ -1263,14 +1273,8 @@ pop(Client *c) {
 void
 propertynotify(XEvent *e) {
 	Client *c;
-	Systray *s;
 	Window trans;
 	XPropertyEvent *ev = &e->xproperty;
-
-    if ((s = systray_find(ev->window))) {
-        systray_state(s);
-        systray_update();
-    }
 
 	if((ev->window == root) && (ev->atom == XA_WM_NAME))
 		updatestatus();
@@ -1620,7 +1624,7 @@ setup(void) {
 	/* init bars */
 	updatebars();
 	updatestatus();
-	systray_acquire();
+	trayinit();
 	/* EWMH support per view */
 	XChangeProperty(dpy, root, netatom[NetSupported], XA_ATOM, 32,
 			PropModeReplace, (unsigned char *) netatom, NetLast);
@@ -1678,7 +1682,7 @@ void
 replace(const Arg *arg)
 {
     if (dpy) {
-        systray_freeicons();
+        trayclear();
         close(ConnectionNumber(dpy));
     }
     execvp(((char **)arg->v)[0], (char **)arg->v);
@@ -1736,7 +1740,7 @@ togglebar(const Arg *arg) {
 	updatebarpos(selmon);
 	XMoveResizeWindow(dpy, selmon->barwin, selmon->wx, selmon->by, selmon->ww, bh);
 	arrange(selmon);
-	systray_update();
+	trayupdate();
 }
 
 void
@@ -1838,8 +1842,11 @@ unmanage(Client *c, Bool destroyed) {
 void
 unmapnotify(XEvent *e) {
 	Client *c;
-	Systray *s;
+	TrayIcon *icon;
 	XUnmapEvent *ev = &e->xunmap;
+
+    if ((icon = trayicon(ev->window)))
+        traydel(icon);
 
 	if((c = wintoclient(ev->window))) {
 		if(ev->send_event)
@@ -1847,11 +1854,6 @@ unmapnotify(XEvent *e) {
 		else
 			unmanage(c, False);
 	}
-
-	if ((s = systray_find(ev->window))) {
-	    systray_del(s);
-	    systray_update();
-    }
 }
 
 void
@@ -1913,8 +1915,7 @@ updategeom(void) {
 
 		for(n = 0, m = mons; m; m = m->next, n++);
 		/* only consider unique geometries as separate screens */
-		if(!(unique = (XineramaScreenInfo *)malloc(sizeof(XineramaScreenInfo) * nn)))
-			die("fatal: could not malloc() %u bytes\n", sizeof(XineramaScreenInfo) * nn);
+		unique = mem_new(XineramaScreenInfo, nn);
 		for(i = 0, j = 0; i < nn; i++)
 			if(isuniquegeom(unique, j, &info[i]))
 				memcpy(&unique[j++], &info[i], sizeof(XineramaScreenInfo));
@@ -2203,9 +2204,12 @@ main(int argc, char *argv[]) {
 
 
 Bool
-systray_acquire(void)
+trayinit(void)
 {
     XSetWindowAttributes wattr;
+
+    if (!tray_enabled)
+        return False;
 
     if (XGetSelectionOwner(dpy, netatom[NetSystemTray]) != None) {
         fprintf(stderr, "Can't initialize system tray: owned by another process\n");
@@ -2228,67 +2232,68 @@ systray_acquire(void)
     XMapRaised(dpy, traywin);
     XSetSelectionOwner(dpy, netatom[NetSystemTray], traywin, CurrentTime);
     if (XGetSelectionOwner(dpy, netatom[NetSystemTray]) != traywin) {
-        systray_freeicons();
+        trayclear();
         fprintf(stderr, "Can't get systray manager\n");
         return False;
     }
-
-    ewmh_message(root, root,
-                 xeatom[XeManager], CurrentTime,
-                 netatom[NetSystemTray],
-                 traywin, 0, 0);
     XSync(dpy, False);
     return True;
 }
 
 
 void
-systray_add(Window win)
+trayadd(Window window)
 {
-    Systray *s;
+    TrayIcon *icon;
 
-    if ((s = (Systray*) malloc(sizeof(Systray))) == NULL)
-		die("fatal: could not malloc() %u bytes\n", sizeof(Systray));
-    memset(s, 0x00, sizeof(Systray));
+    if (!tray_enabled)
+        return;
 
+    icon = mem_new(TrayIcon, 1);
     /* Padding is subtracted twice: top+bottom / left+right */
-    s->geo.width = s->geo.height = bh - 2 * systray_padding;
-    s->win = win;
+    icon->geometry.width = icon->geometry.height = bh - 2 * tray_padding;
+    icon->window = window;
 
-    XSelectInput(dpy, s->win,
+    XSelectInput(dpy, icon->window,
                  StructureNotifyMask | PropertyChangeMask| EnterWindowMask | FocusChangeMask);
-    XReparentWindow(dpy, s->win, traywin, 0, 0);
+    XReparentWindow(dpy, icon->window, traywin, 0, 0);
 
-    s->next = trayicons;
-    trayicons = s;
+    TAILQ_INSERT_TAIL(&trayicons, icon, list);
+    trayupdate();
 }
 
 
 void
-systray_del(Systray *s)
+traydel(TrayIcon *icon)
 {
-    if (s == trayicons) {
-        trayicons = s->next;
-    }
-    else {
-        Systray *prev = trayicons;
-        while (prev->next != s) {
-            prev = prev->next;
-        }
-        prev->next = s->next;
-    }
-    free(s);
+    if (!tray_enabled)
+        return;
+
+#ifdef _DEBUG
+    TrayIcon *i;
+    TAILQ_FOREACH(i, &trayicons, list)
+        if (i == icon)
+            break;
+    assert(i == icon);
+#endif
+    TAILQ_REMOVE(&trayicons, icon, list);
+    free(icon);
+    trayupdate();
 }
 
 
 void
-systray_freeicons(void)
+trayclear(void)
 {
-    Systray *s;
+    if (!tray_enabled)
+        return;
 
-    for (s = trayicons; s != NULL; s = s->next) {
-        XUnmapWindow(dpy, s->win);
-        XReparentWindow(dpy, s->win, root, 0, 0);
+    while (!TAILQ_EMPTY(&trayicons)) {
+        TrayIcon *icon = TAILQ_FIRST(&trayicons);
+        TAILQ_REMOVE(&trayicons, icon, list);
+        XUnmapWindow(dpy, icon->window);
+        XReparentWindow(dpy, icon->window, root, 0, 0);
+        free(icon);
     }
 
     XSetSelectionOwner(dpy, netatom[NetSystemTray], None, CurrentTime);
@@ -2298,134 +2303,62 @@ systray_freeicons(void)
 }
 
 
-Systray*
-systray_find(Window win)
+TrayIcon*
+trayicon(Window window)
 {
-    Systray *s;
-    for (s = trayicons; s != NULL; s = s->next) {
-        if (s->win == win) {
-            return s;
-        }
-    }
+    TrayIcon *icon;
+
+    if (tray_enabled)
+        TAILQ_FOREACH(icon, &trayicons, list)
+            if (icon->window == window)
+                return icon;
+
     return NULL;
 }
 
 
-int
-systray_width(void)
+unsigned
+traywidth(void)
 {
-    int w = 0;
-    Systray *s;
+    unsigned width = 0;
+    TrayIcon *icon;
 
-    for (s = trayicons; s != NULL; s = s->next)
-        w += s->geo.width + systray_spacing + 2 * systray_padding;
+    if (tray_enabled)
+        TAILQ_FOREACH(icon, &trayicons, list)
+            width += icon->geometry.width + tray_spacing + 2 * tray_padding;
 
-    return w;
+    return width;
 }
 
 
 void
-systray_update(void)
+trayupdate(void)
 {
-    Systray *s;
+    TrayIcon *icon;
     int x = 1;
     int pos = sw;
     int pos_y = topbar ? 0 : sh - bh;
 
-    if (!trayicons || !selmon->showbar) {
+    if (!tray_enabled)
+        return;
+
+    if (TAILQ_EMPTY(&trayicons) || !selmon->showbar) {
         pos -= 1;
         XMoveResizeWindow(dpy, traywin, pos, 0, 1, 1);
         return;
     }
 
-    for (s = trayicons; s != NULL; s = s->next) {
-        XMapWindow(dpy, s->win);
-        XMoveResizeWindow(dpy, s->win,
-                          s->geo.x = x,
-                          systray_padding,
-                          s->geo.width,
-                          s->geo.height);
-        x += s->geo.width + systray_spacing + 2 * systray_padding;
+    TAILQ_FOREACH(icon, &trayicons, list) {
+        XMapWindow(dpy, icon->window);
+        XMoveResizeWindow(dpy,
+                          icon->window,
+                          icon->geometry.x = x,
+                          tray_padding,
+                          icon->geometry.width,
+                          icon->geometry.height);
+        x += icon->geometry.width + tray_spacing + 2 * tray_padding;
     }
 
     pos -= x;
     XMoveResizeWindow(dpy, traywin, pos, pos_y, x, bh);
 }
-
-
-void
-systray_state(Systray *s)
-{
-    long flags;
-    int code = 0;
-    long data[2] = { 0, None };
-
-    if (!(flags = ewmh_xembed_state(s->win)))
-        return;
-
-    if (flags & XE_MAPPED) {
-        code = XE_WINDOW_ACTIVATE;
-        XMapRaised(dpy, s->win);
-        data[0] = NormalState;
-    }
-    else {
-        code = XE_WINDOW_DEACTIVATE;
-        XUnmapWindow(dpy, s->win);
-        data[0] = WithdrawnState;
-    }
-
-    XChangeProperty(dpy, s->win,
-                    wmatom[WMState],
-                    wmatom[WMState],
-                    32,
-                    PropModeReplace,
-                    (unsigned char*) data,
-                    2);
-
-    ewmh_message(s->win, s->win, xeatom[XeXEmbed], CurrentTime, code, 0, 0, 0);
-}
-
-
-long
-ewmh_xembed_state(Window win)
-{
-    Atom rf;
-    int f;
-    unsigned long n, il;
-    long ret = 0;
-    unsigned char *data = NULL;
-
-    if (XGetWindowProperty(dpy, win,
-                           xeatom[XeXEmbedInfo], 0L, 2, False,
-                           xeatom[XeXEmbedInfo], &rf, &f, &n, &il, &data) != Success)
-        return 0;
-
-    if (rf == xeatom[XeXEmbedInfo] && n == 2)
-        ret = (long) data[1];
-
-    if (n && data)
-        XFree(data);
-
-    return ret;
-}
-
-
-void
-ewmh_message(Window d, Window w, Atom atom, long d0, long d1, long d2, long d3, long d4)
-{
-    XClientMessageEvent e;
-
-    e.type          = ClientMessage;
-    e.message_type  = atom;
-    e.window        = w;
-    e.format        = 32;
-    e.data.l[0]     = d0;
-    e.data.l[1]     = d1;
-    e.data.l[2]     = d2;
-    e.data.l[3]     = d3;
-    e.data.l[4]     = d4;
-
-    XSendEvent(dpy, d, False, StructureNotifyMask, (XEvent*) &e);
-    XSync(dpy, False);
-}
-

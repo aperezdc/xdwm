@@ -120,9 +120,12 @@ static Button buttons[] = {
     { ClkTagBar,            MODKEY,         Button3,        toggletag,      {0} },
 };
 
+
+/* Whether to enable the system tray */
+static const Bool tray_enabled = True;
+
 /* Spacing of system tray icons, in pixels */
-static const int systray_spacing = 1;
+static const unsigned tray_spacing = 1;
 
 /* Padding (internal) of system tray icons, in pixels */
-static const int systray_padding = 1;
-
+static const unsigned tray_padding = 0;
