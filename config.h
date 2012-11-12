@@ -127,4 +127,4 @@ static const Bool tray_enabled = True;
 static const unsigned tray_spacing = 1;
 
 /* Padding (internal) of system tray icons, in pixels */
-static const unsigned tray_padding = 0;
+static const unsigned tray_padding = 1;
