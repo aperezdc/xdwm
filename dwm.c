@@ -2303,6 +2303,11 @@ trayadd(Window window)
     if (!tray_enabled)
         return;
 
+    /* Do not add the same tray icon twice */
+    TAILQ_FOREACH(icon, &trayicons, list)
+        if (icon->window == window)
+            return;
+
     icon = mem_new(TrayIcon, 1);
     /* Padding is subtracted twice: top+bottom / left+right */
     icon->geometry.width = icon->geometry.height = bh - 2 * tray_padding;
