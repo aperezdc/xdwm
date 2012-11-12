@@ -69,6 +69,11 @@ enum { WMProtocols, WMDelete, WMState, WMTakeFocus, WMLast }; /* default atoms *
 enum { ClkTagBar, ClkLtSymbol, ClkStatusText, ClkWinTitle,
        ClkClientWin, ClkRootWin, ClkLast }; /* clicks */
 
+#define FlagNum          2 /* Update accordingly when adding flags */
+#define FlagFullscreen  (1 << (LENGTH(tags) + 1))
+#define FlagFloating    (1 << (LENGTH(tags) + 2))
+#define FlagMask        (FlagFullscreen | FlagFloating)
+
 typedef union {
 	int i;
 	unsigned int ui;
@@ -263,6 +268,9 @@ static int xerrordummy(Display *dpy, XErrorEvent *ee);
 static int xerrorstart(Display *dpy, XErrorEvent *ee);
 static void zoom(const Arg *arg);
 
+static void restorexdwmprop(Client*);
+static void updatexdwmprop(Client*);
+
 static Bool trayinit(void);
 static void trayadd(Window);
 static void traydel(TrayIcon*);
@@ -312,7 +320,7 @@ static void (*handler[LASTEvent]) (XEvent *) = {
 	[PropertyNotify] = propertynotify,
 	[UnmapNotify] = unmapnotify
 };
-static Atom wmatom[WMLast], netatom[NetLast], xeatom[XeLast];
+static Atom wmatom[WMLast], netatom[NetLast], xeatom[XeLast], xdwmatom;
 static Bool running = True;
 static Cur *cursor[CurLast];
 static ClrScheme scheme[SchemeLast];
@@ -327,6 +335,8 @@ static Window root;
 
 /* compile-time check if all tags fit into an unsigned int bit array. */
 struct NumTags { char limitexceeded[LENGTH(tags) > 31 ? -1 : 1]; };
+/* same, for the flags bitmask */
+struct NumFlags { char limitexceeded[(LENGTH(tags) + FlagNum) > 31 ? -1 : 1]; };
 
 /* function implementations */
 void
@@ -1126,6 +1136,8 @@ manage(Window w, XWindowAttributes *wa) {
 		c->mon = selmon;
 		applyrules(c);
 	}
+    restorexdwmprop(c);
+
 	/* geometry */
 	c->x = c->oldx = wa->x;
 	c->y = c->oldy = wa->y;
@@ -1493,6 +1505,7 @@ sendmon(Client *c, Monitor *m) {
 	detachstack(c);
 	c->mon = m;
 	c->tags = m->tagset[m->seltags]; /* assign tags of target monitor */
+	updatexdwmprop(c);
 	attach(c);
 	attachstack(c);
 	focus(NULL);
@@ -1568,6 +1581,7 @@ setfullscreen(Client *c, Bool fullscreen) {
 		resizeclient(c, c->x, c->y, c->w, c->h);
 		arrange(c->mon);
 	}
+	updatexdwmprop(c);
 }
 
 void
@@ -1615,6 +1629,7 @@ setup(void) {
 	drw_setfont(drw, fnt);
 	updategeom();
 	/* init atoms */
+	xdwmatom = XInternAtom(dpy, "XDWM_CLIENT_INFO", False);
 	wmatom[WMProtocols] = XInternAtom(dpy, "WM_PROTOCOLS", False);
 	wmatom[WMDelete] = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
 	wmatom[WMState] = XInternAtom(dpy, "WM_STATE", False);
@@ -1707,7 +1722,16 @@ void
 replace(const Arg *arg)
 {
     if (dpy) {
+        /* Update XDWM_CLIENT_INFO for all clients before exiting */
+        Monitor *m;
+        Client *c;
+        for (m = mons; m; m = m->next)
+            for (c = m->clients; c; c = c->next)
+                updatexdwmprop(c);
+
+        /* Unregister system tray */
         trayclear();
+
         close(ConnectionNumber(dpy));
     }
     execvp(((char **)arg->v)[0], (char **)arg->v);
@@ -1720,6 +1744,7 @@ void
 tag(const Arg *arg) {
 	if(selmon->sel && arg->ui & TAGMASK) {
 		selmon->sel->tags = arg->ui & TAGMASK;
+		updatexdwmprop(selmon->sel);
 		focus(NULL);
 		arrange(selmon);
 	}
@@ -1730,6 +1755,7 @@ tagmon(const Arg *arg) {
 	if(!selmon->sel || !mons->next)
 		return;
 	sendmon(selmon->sel, dirtomon(arg->i));
+	updatexdwmprop(selmon->sel);
 }
 
 void
@@ -1776,6 +1802,7 @@ togglefloating(const Arg *arg) {
 	if(selmon->sel->isfullscreen) /* no support for fullscreen windows */
 		return;
 	selmon->sel->isfloating = !selmon->sel->isfloating || selmon->sel->isfixed;
+	updatexdwmprop(selmon->sel);
 	if(selmon->sel->isfloating)
 		resize(selmon->sel, selmon->sel->x, selmon->sel->y,
 		       selmon->sel->w, selmon->sel->h, False);
@@ -1791,6 +1818,7 @@ toggletag(const Arg *arg) {
 	newtags = selmon->sel->tags ^ (arg->ui & TAGMASK);
 	if(newtags) {
 		selmon->sel->tags = newtags;
+		updatexdwmprop(selmon->sel);
 		focus(NULL);
 		arrange(selmon);
 	}
@@ -1848,6 +1876,7 @@ unmanage(Client *c, Bool destroyed) {
 	detach(c);
 	detachstack(c);
 	if(!destroyed) {
+		updatexdwmprop(c);
 		wc.border_width = c->oldbw;
 		XGrabServer(dpy);
 		XSetErrorHandler(xerrordummy);
@@ -2381,4 +2410,52 @@ trayupdate(void)
         x += icon->geometry.width + tray_spacing + 2 * tray_padding;
     }
     XMoveResizeWindow(dpy, traywin, selmon->wx + selmon->ww - x, selmon->by, x, bh);
+}
+
+
+void
+restorexdwmprop(Client *client)
+{
+    int *flags;
+    Atom atype;
+    Monitor *m;
+    unsigned long nbytes;
+    unsigned long nitems = 2;
+    int format = 32;
+
+    if (!client)
+        return;
+
+    if (XGetWindowProperty(dpy, client->win, xdwmatom,
+                           0L, sizeof(int) * 2, False,
+                           XA_INTEGER, &atype, &format, &nitems, &nbytes,
+                           (unsigned char**) &flags) == Success)
+    {
+        if (atype == XA_INTEGER && nitems == 2 && format == 32) {
+            client->tags = flags[0] & TAGMASK;
+            client->isfullscreen = (flags[0] & FlagFullscreen) == FlagFullscreen;
+            client->isfloating   = (flags[0] & FlagFloating  ) == FlagFloating;
+            client->mon          = mons;
+
+            /* Try to find a suitable monitor */
+            for (m = mons; m; m = m->next)
+                if (m->num == flags[1])
+                    client->mon = m;
+        }
+        XFree(flags);
+    }
+}
+
+
+void
+updatexdwmprop(Client *client)
+{
+    int flags[2] = { client->tags, client->mon->num };
+
+    if (client->isfullscreen) flags[0] |= FlagFullscreen;
+    if (client->isfloating)   flags[0] |= FlagFloating;
+
+    XChangeProperty(dpy, client->win, xdwmatom,
+                    XA_INTEGER, 32, PropModeReplace,
+                    (unsigned char*) flags, 2);
 }
