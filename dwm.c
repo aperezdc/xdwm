@@ -278,6 +278,10 @@ static void trayclear(void);
 static TrayIcon* trayicon(Window);
 static unsigned traywidth(void);
 static void trayupdate(void);
+static void trayupdateicon(TrayIcon *icon);
+
+static long xembedstate(Window);
+static void ewmhmessage(Window, Window, Atom, long, long, long, long, long);
 
 
 static inline void*
@@ -1313,6 +1317,8 @@ propertynotify(XEvent *e) {
 	Window trans;
 	XPropertyEvent *ev = &e->xproperty;
 
+    trayupdateicon(trayicon(ev->window));
+
 	if((ev->window == root) && (ev->atom == XA_WM_NAME))
 		updatestatus();
 	else if(ev->state == PropertyDelete)
@@ -2290,6 +2296,10 @@ trayinit(void)
         fprintf(stderr, "Can't get systray manager\n");
         return False;
     }
+
+    ewmhmessage(root, root, xeatom[XeManager], CurrentTime,
+                netatom[NetSystemTray], traywin, 0, 0);
+
     XSync(dpy, False);
     return True;
 }
@@ -2415,6 +2425,83 @@ trayupdate(void)
         x += icon->geometry.width + tray_spacing + 2 * tray_padding;
     }
     XMoveResizeWindow(dpy, traywin, selmon->wx + selmon->ww - x, selmon->by, x, bh);
+}
+
+
+void
+trayupdateicon(TrayIcon *icon)
+{
+    long flags;
+    long data[2] = { 0, None };
+    int code = 0;
+
+    if (!tray_enabled || !icon)
+        return;
+
+    if (!(flags = xembedstate(icon->window)))
+        return;
+
+    if (flags & XE_MAPPED) {
+        code = XE_WINDOW_ACTIVATE;
+        XMapWindow(dpy, icon->window);
+        data[0] = NormalState;
+    }
+    else {
+        code = XE_WINDOW_DEACTIVATE;
+        XUnmapWindow(dpy, icon->window);
+        data[0] = WithdrawnState;
+    }
+
+    XChangeProperty(dpy, icon->window,
+                    wmatom[WMState], wmatom[WMState], 32, PropModeReplace,
+                    (unsigned char*) data, 2);
+
+    ewmhmessage(icon->window, icon->window,
+                xeatom[XeXEmbed], CurrentTime, code, 0, 0, 0);
+
+    trayupdate();
+}
+
+
+long
+xembedstate(Window w)
+{
+    Atom rf;
+    int f;
+    unsigned long n, il;
+    long ret = 0;
+    unsigned char *data = NULL;
+
+    if (XGetWindowProperty(dpy, w,
+                           xeatom[XeXEmbedInfo], 0L, 2, False,
+                           xeatom[XeXEmbedInfo], &rf, &f, &n, &il, &data) != Success)
+        return 0;
+
+    if (rf == xeatom[XeXEmbedInfo] && n == 2)
+        ret = (long) data[1];
+    if (n && data)
+        XFree(data);
+    return ret;
+}
+
+
+void
+ewmhmessage(Window w, Window d, Atom atom, long d0, long d1, long d2, long d3, long d4)
+{
+    XClientMessageEvent e;
+
+    e.type         = ClientMessage;
+    e.message_type = atom;
+    e.window       = w;
+    e.format       = 32;
+    e.data.l[0]    = d0;
+    e.data.l[1]    = d1;
+    e.data.l[2]    = d2;
+    e.data.l[3]    = d3;
+    e.data.l[4]    = d4;
+
+    XSendEvent(dpy, d, False, StructureNotifyMask, (XEvent*) &e);
+    XSync(dpy, False);
 }
 
 
