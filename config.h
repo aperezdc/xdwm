@@ -55,6 +55,9 @@ static const char *termcmd[]  = { "uxterm", NULL };
 static const char *ssuspcmd[] = { "systemctl", "suspend", NULL };
 static const char *lockcmd[]  = { "alock", "-auth", "pam", NULL };
 static const char *xdwmcmd[]  = { "xdwm", NULL };
+static const char *mpdtoggle[]= { "mpc", "-q", "toggle", NULL };
+static const char *mpdnext[]  = { "mpc", "-q", "next",   NULL };
+static const char *mpdprev[]  = { "mpc", "-q", "prev",   NULL };
 
 
 static Key keys[] = {
@@ -64,6 +67,9 @@ static Key keys[] = {
     { MODKEY|ShiftMask|ControlMask, XK_l,      spawn,          {.v = lockcmd  } },
     { MODKEY|ShiftMask|ControlMask, XK_s,      spawn,          {.v = ssuspcmd } },
     { MODKEY|ShiftMask|ControlMask, XK_r,      replace,        {.v = xdwmcmd  } },
+    { MODKEY|ControlMask,           XK_Down,   spawn,          {.v = mpdtoggle} },
+    { MODKEY|ControlMask,           XK_Left,   spawn,          {.v = mpdprev  } },
+    { MODKEY|ControlMask,           XK_Right,  spawn,          {.v = mpdnext  } },
     { MODKEY,                       XK_b,      togglebar,      {0} },
     { MODKEY,                       XK_s,      swapfocus,      {0} },
     { MODKEY,                       XK_j,      focusstack,     {.i = +1 } },
