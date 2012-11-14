@@ -29,14 +29,9 @@ clean:
 	@rm -f xdwm ${OBJ} xdwm-${VERSION}.tar.gz
 	@$(MAKE) -C session clean
 
-dist: clean
+dist:
 	@echo creating dist tarball
-	@mkdir -p xdwm-${VERSION}
-	@cp -R LICENSE Makefile README config.h config.mk \
-		xdwm.1 ${SRC} queue.h session/ xdwm-${VERSION}
-	@tar -cf xdwm-${VERSION}.tar xdwm-${VERSION}
-	@gzip xdwm-${VERSION}.tar
-	@rm -rf xdwm-${VERSION}
+	@git archive --prefix=xdwm-${VERSION}/ ${VERSION} | xz -9c > xdwm-${VERSION}.tar.xz
 
 install: all
 	@echo installing executable file to ${DESTDIR}${PREFIX}/bin
