@@ -1,4 +1,4 @@
-VERSION = 6.1p6
+VERSION = 6.1p7
 
 # Customize below to fit your system
 
